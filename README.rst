@@ -9,25 +9,32 @@ is the text format file used by Weka to store data in a database.
 
 to generate the arff files we need:
 
-- install (`liac-arff <https://github.com/flecox/liac-arff>`_ ) (a forked version until new changes are merged, original: (`HERE <https://github.com/renatopp/liac-arff>`_)).
+- install (`liac-arff https://github.com/renatopp/liac-arff/`_ )
 
 
 Features
 --------
 
 - Script to turn csv to arff file.
-- Supports NUMERIC, REAL, INTEGER, STRING, DATE and NOMINAL attribute types;
+- Supports NUMERIC, REAL, INTEGER, STRING and NOMINAL attribute types;
 - Supports names with space;
 - LGPL license;
 
-pre
 
 Install
 -------
 
-Manually::
+pre-requistes::
 
-    $ python setup.py install
+    $ git clone git@github.com:renatopp/liac-arff.git
+    $ cd liac-arff/
+    $ python2.7 setup.py install
+
+install csv_to_arff::
+
+	$ git clone git@github.com:flecox/CsvToArff.git
+	$ cd CsvToArff/
+    $ python2.7 setup.py install
 
 
 csv to Arff script
