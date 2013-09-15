@@ -28,9 +28,47 @@ def types_callback(option, opt, value, parser):
     setattr(parser.values, option.dest, value.split(','))
 
 
-def csv_to_arff(fileinput, type_list, relation_name, selected_attrs=None):
-    """Reads a csv, a list of arff types and returns a string with the arff
-    format."""
+def check_selected_attrs(selected_attrs, header):
+    """Check if the selected attrs are in the csv header."""
+    for attr in selected_attrs:
+            if attr not in header:
+                raise AttrMissingException(attr)
+
+
+def get_selected_colmumns_map(selected_attrs, header):
+    selected_columns = []
+    for attr in header:
+        #list the selected columns
+        if selected_attrs and attr not in selected_attrs:
+            selected_columns.append(False)
+        else:
+            selected_columns.append(True)
+    return selected_columns
+
+
+def init_attributes_list(header, selected_column, type_list):
+    #set the attributes
+    attributes = []
+    index = 0
+    for selected, attr in zip(selected_columns, header):
+        #list the selected columns
+        if selected:
+            attr = unicode(attr, 'utf-8')
+            if index >= len(type_list):
+                raise NotEnoughTypesException
+            arff_type = type_list[index]
+            if arff_type.upper() == "NOMINAL":
+                tmp = (attr, [])
+            else:
+                tmp = (attr, arff_type)
+            index += 1
+            attributes.append(tmp)
+    return attributes
+
+
+def data_to_arff(data, type_list, relation_name, selected_attrs=None):
+    """Reads a data matrix with first row as header, a list of arff types and
+    returns a string with the arff format."""
 
     #this will be dictionria sent to to_arff module
     arff_content = defaultdict(list)
@@ -40,69 +78,48 @@ def csv_to_arff(fileinput, type_list, relation_name, selected_attrs=None):
 
     is_nominal_column = [t.upper() == 'NOMINAL' for t in type_list]
 
-    with open(fileinput, 'r') as inputfile:
-        data = csv.reader(inputfile, delimiter=',')
-        #get header
-        header = data.next()
-        attributes = []
-        selected_columns = []
+    #get header
+    header = data.next()
+    attributes = []
 
-        #must check if the selected attrs are in the csv header
-        for attr in selected_attrs:
-            if attr not in header:
-                raise AttrMissingException(attr)
-        #set the attributes
-        index = 0
-        for attr in header:
-            #list the selected columns
-            if selected_attrs and attr not in selected_attrs:
-                selected_columns.append(False)
-            else:
-                selected_columns.append(True)
-                attr = unicode(attr, 'utf-8')
-                #create the list of attributes
-                if index >= len(type_list):
-                    raise NotEnoughTypesException
-                arff_type = type_list[index]
-                if arff_type.upper() == "NOMINAL":
-                    tmp = (attr, [])
-                else:
-                    tmp = (attr, arff_type)
+    check_selected_attrs(selected_attrs, header)
+
+    selected_columns = get_selected_colmumns_map(selected_attrs, header)
+
+    attributes = init_attributes_list(header, selected_columns, type_list)
+
+    assert len(attributes) > len(type_list):
+
+    #create data rows
+    arff_data = []
+    index = 0
+    for line in data:
+        #only use the selected columns
+        new_line = []
+        for i, item in enumerate(line):
+            if selected_columns[i]:
+                if item != '':
+                    new_line.append(unicode(item, 'utf-8'))
+                else: #missing value, must be none not ''
+                    new_line.append(None)
+
+                assert i < len(is_nominal_column)
+                #add to attributes if its nominal column
+                if is_nominal_column[index] and item:
+                    attributes[i][1].append(unicode(item, 'utf-8'))
                 index += 1
-                attributes.append(tmp)
 
-        #if the ammount of attributes its diferent form the list of types
-        if len(attributes) > len(type_list):
-            raise NotEnoughTypesException
+        if len(type_list) != len(new_line):
+            raise NotEnoughAttributesException
+        #append new row to the data list
+        arff_data.append(new_line)
 
-        #create data rows
-        arff_data = []
-        for line in data:
-            #only use the selected columns
-            new_line = []
-            for i, item in enumerate(line):
-                if selected_columns[i]:
-                    if item != '':
-                        new_line.append(unicode(item, 'utf-8'))
-                    else: #missing value, must be none not ''
-                        new_line.append(None)
-            if len(type_list) != len(new_line):
-                raise NotEnoughAttributesException
-            for i, (nominal, value) in enumerate(zip(is_nominal_column,
-                                                     new_line)):
-                #load all the nominals values for the nominal attribute
-                if nominal and value not in attributes[i]:
-                    attributes[i][1].append(value)
-            #append new row to the data list
-            arff_data.append(new_line)
-        arff_content['attributes'] = attributes
-        arff_content['data'] = arff_data
-        return arff.dumps(arff_content)
+    arff_content['attributes'] = attributes
+    arff_content['data'] = arff_data
+    return arff.dumps(arff_content)
 
 
-#main program
-if __name__ == "__main__":
-
+def main():
     usage = "Usage: %prog <options>'"
     parser = OptionParser(usage=usage)
 
@@ -155,7 +172,10 @@ if __name__ == "__main__":
             parser.error("%s is not a legal type use %s" % (arff_type,
                                                             str(ARFF_TYPES)))
     try:
-        print csv_to_arff(fileinput, type_list, relation_name, selected_attrs)
+        with open(fileinput, 'r') as inputfile:
+            data = csv.reader(inputfile, delimiter=',')
+            print data_to_arff(data, type_list, relation_name, selected_attrs)
+
     except IOError:
         parser.error("the file %s does not exists" % options.fileinput)
     except NotEnoughTypesException:
@@ -166,3 +186,7 @@ if __name__ == "__main__":
         parser.error("attribute '%s' not in csv header" % e)
     except arff.WrongTypeException, e:
         parser.error("Type Error, '%s' can't be a %s type.\n\nrow: %s" % (e[0], e[1], e[2]))
+
+#main program
+if __name__ == "__main__":
+    main()
