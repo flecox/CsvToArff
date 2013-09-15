@@ -88,7 +88,7 @@ def data_to_arff(data, type_list, relation_name, selected_attrs=None):
 
     attributes = init_attributes_list(header, selected_columns, type_list)
 
-    assert len(attributes) > len(type_list):
+    assert len(attributes) > len(type_list)
 
     #create data rows
     arff_data = []
