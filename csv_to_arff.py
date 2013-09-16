@@ -123,7 +123,7 @@ def csv_to_arff(fileinput, type_list, relation_name, selected_attrs):
     with open(fileinput, 'r') as inputfile:
         data = csv.reader(inputfile, delimiter=',')
         arff_content = data_to_dict(data, type_list, relation_name, selected_attrs)
-        arff.dumps(arff_content)
+        return arff.dumps(arff_content)
 
 
 def main():
@@ -179,7 +179,7 @@ def main():
             parser.error("%s is not a legal type use %s" % (arff_type,
                                                             str(ARFF_TYPES)))
     try:
-        print csv_to_arff(data, type_list, relation_name, selected_attrs)
+        print csv_to_arff(fileinput, type_list, relation_name, selected_attrs)
 
     except IOError:
         parser.error("the file %s does not exists" % options.fileinput)
