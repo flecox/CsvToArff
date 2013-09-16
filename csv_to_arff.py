@@ -35,7 +35,7 @@ def check_selected_attrs(selected_attrs, header):
                 raise AttrMissingException(attr)
 
 
-def get_selected_colmumns_map(selected_attrs, header):
+def get_selected_columns_map(selected_attrs, header):
     selected_columns = []
     for attr in header:
         #list the selected columns
@@ -46,7 +46,7 @@ def get_selected_colmumns_map(selected_attrs, header):
     return selected_columns
 
 
-def init_attributes_list(header, selected_column, type_list):
+def init_attributes_list(header, selected_columns, type_list):
     #set the attributes
     attributes = []
     index = 0
@@ -66,7 +66,7 @@ def init_attributes_list(header, selected_column, type_list):
     return attributes
 
 
-def data_to_arff(data, type_list, relation_name, selected_attrs=None):
+def data_to_dict(data, type_list, relation_name, selected_attrs=None):
     """Reads a data matrix with first row as header, a list of arff types and
     returns a string with the arff format."""
 
@@ -84,18 +84,18 @@ def data_to_arff(data, type_list, relation_name, selected_attrs=None):
 
     check_selected_attrs(selected_attrs, header)
 
-    selected_columns = get_selected_colmumns_map(selected_attrs, header)
+    selected_columns = get_selected_columns_map(selected_attrs, header)
 
     attributes = init_attributes_list(header, selected_columns, type_list)
 
-    assert len(attributes) > len(type_list)
+    assert len(attributes) <= len(type_list)
 
     #create data rows
     arff_data = []
-    index = 0
     for line in data:
         #only use the selected columns
         new_line = []
+        index = 0
         for i, item in enumerate(line):
             if selected_columns[i]:
                 if item != '':
@@ -103,20 +103,27 @@ def data_to_arff(data, type_list, relation_name, selected_attrs=None):
                 else: #missing value, must be none not ''
                     new_line.append(None)
 
-                assert i < len(is_nominal_column)
+                assert index < len(is_nominal_column)
                 #add to attributes if its nominal column
                 if is_nominal_column[index] and item:
-                    attributes[i][1].append(unicode(item, 'utf-8'))
+                    attributes[index][1].append(unicode(item, 'utf-8'))
                 index += 1
 
-        if len(type_list) != len(new_line):
+        if len(type_list) < len(new_line):
             raise NotEnoughAttributesException
         #append new row to the data list
         arff_data.append(new_line)
 
     arff_content['attributes'] = attributes
     arff_content['data'] = arff_data
-    return arff.dumps(arff_content)
+    return arff_content
+
+
+def csv_to_arff(fileinput, type_list, relation_name, selected_attrs):
+    with open(fileinput, 'r') as inputfile:
+        data = csv.reader(inputfile, delimiter=',')
+        arff_content = data_to_dict(data, type_list, relation_name, selected_attrs)
+        arff.dumps(arff_content)
 
 
 def main():
@@ -172,9 +179,7 @@ def main():
             parser.error("%s is not a legal type use %s" % (arff_type,
                                                             str(ARFF_TYPES)))
     try:
-        with open(fileinput, 'r') as inputfile:
-            data = csv.reader(inputfile, delimiter=',')
-            print data_to_arff(data, type_list, relation_name, selected_attrs)
+        print csv_to_arff(data, type_list, relation_name, selected_attrs)
 
     except IOError:
         parser.error("the file %s does not exists" % options.fileinput)
